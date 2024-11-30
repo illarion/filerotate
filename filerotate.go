@@ -219,6 +219,12 @@ func (w *Writer) Close() error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
+	if w.buf != nil {
+		w.buf = w.buf[:0]
+		buffers.Put(w.buf)
+		w.buf = nil
+	}
+
 	if w.f != nil {
 		err := w.f.Close()
 		w.f = nil
