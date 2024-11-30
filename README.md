@@ -42,6 +42,10 @@ var (
 )
 
 ```
+## Binary vs Text 
+
+filerotate is not limited to text files and can handle writing binary files, rotated by size or size + line separator, that can be any sequence of bytes specified, not limited to "\n", "\r\n" or "\r". 
+Splitting the files does not happen at exaclty `Options.Size` byte and depends on the size of the buffer provided to `io.Writer.Write(buf)`, so that binary files may get corrupted.
 
 ## Usage
 
