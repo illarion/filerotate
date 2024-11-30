@@ -37,6 +37,13 @@ var DefaultOptions = Options{
 	LineSeparator: LineSeparatorUnix,
 }
 
+// multiple instances of the writer can share the buffer
+var buffers = sync.Pool{
+	New: func() interface{} {
+		return make([]byte, 0)
+	},
+}
+
 type Writer struct {
 	options Options
 	mu      sync.Mutex
@@ -71,7 +78,6 @@ func NewWriter(options Options) (*Writer, error) {
 	return &Writer{
 		options: options,
 		f:       f,
-		buf:     make([]byte, 0),
 	}, nil
 }
 
@@ -108,6 +114,11 @@ func (w *Writer) Write(p []byte) (n int, err error) {
 	}
 
 	// separator not yet found, memorize the content
+
+	if w.buf == nil {
+		w.buf = buffers.Get().([]byte)
+	}
+
 	w.buf = append(w.buf, p...)
 
 	// search for the separator in the buffer
@@ -115,6 +126,17 @@ func (w *Writer) Write(p []byte) (n int, err error) {
 	if loc == -1 {
 		return len(p), nil
 	}
+
+	defer func() {
+		// reset the buffer
+		w.buf = w.buf[:0]
+
+		// put the buffer back to the pool
+		buffers.Put(w.buf)
+
+		// forget the buffer
+		w.buf = nil
+	}()
 
 	// separator found, write the content to the file
 	n0, err := w.f.Write(w.buf[:loc+len(w.options.LineSeparator)])
@@ -132,9 +154,6 @@ func (w *Writer) Write(p []byte) (n int, err error) {
 	if err != nil {
 		return 0, err
 	}
-
-	// reset the buffer
-	w.buf = w.buf[:0]
 
 	return n0 + n1, nil
 
