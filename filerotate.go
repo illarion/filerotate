@@ -1,6 +1,7 @@
 package filerotate
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"sync"
@@ -16,18 +17,31 @@ type Options struct {
 	Size int64
 	// File mode, like 0600
 	Mode os.FileMode
+	// LineSeparator is the separator for the rotated files content
+	// If specified, rotated files will be split only when the separator is found in the
+	// content of the file.
+	LineSeparator []byte
 }
 
+var (
+	LineSeparatorUnix    = []byte("\n")
+	LineSeparatorWindows = []byte("\r\n")
+	LineSeparatorMac     = []byte("\r")
+	LineSeparatorNothing = []byte{}
+)
+
 var DefaultOptions = Options{
-	Rotate: 5,
-	Size:   10 * 1024 * 1024, // 10MB
-	Mode:   0644,
+	Rotate:        5,
+	Size:          10 * 1024 * 1024, // 10MB
+	Mode:          0644,
+	LineSeparator: LineSeparatorUnix,
 }
 
 type Writer struct {
 	options Options
 	mu      sync.Mutex
 	f       *os.File // current file
+	buf     []byte   // buffer for the content during the search for the separator
 }
 
 // NewWriter creates a new Writer
@@ -57,6 +71,7 @@ func NewWriter(options Options) (*Writer, error) {
 	return &Writer{
 		options: options,
 		f:       f,
+		buf:     make([]byte, 0),
 	}, nil
 }
 
@@ -70,19 +85,59 @@ func (w *Writer) Write(p []byte) (n int, err error) {
 		return 0, fmt.Errorf("file is closed")
 	}
 
-	if w.options.Size > 0 {
-		fi, err := w.f.Stat()
-		if err != nil {
-			return 0, err
-		}
-		if fi.Size() > w.options.Size {
-			if err := w.rotate(); err != nil {
-				return 0, err
-			}
-		}
+	if w.options.Size == 0 {
+		return w.f.Write(p)
 	}
 
-	return w.f.Write(p)
+	stat, err := w.f.Stat()
+	if err != nil {
+		return 0, err
+	}
+
+	if stat.Size() < w.options.Size {
+		return w.f.Write(p)
+	}
+
+	// if LineSeparator is unset, rotate the file
+	if len(w.options.LineSeparator) == 0 {
+		if err := w.rotate(); err != nil {
+			return 0, err
+		}
+
+		return w.f.Write(p)
+	}
+
+	// separator not yet found, memorize the content
+	w.buf = append(w.buf, p...)
+
+	// search for the separator in the buffer
+	loc := bytes.Index(w.buf, w.options.LineSeparator)
+	if loc == -1 {
+		return len(p), nil
+	}
+
+	// separator found, write the content to the file
+	n0, err := w.f.Write(w.buf[:loc+len(w.options.LineSeparator)])
+	if err != nil {
+		return 0, err
+	}
+
+	// rotate the file
+	if err := w.rotate(); err != nil {
+		return 0, err
+	}
+
+	// write the rest of the buffer
+	n1, err := w.f.Write(w.buf[loc+len(w.options.LineSeparator):])
+	if err != nil {
+		return 0, err
+	}
+
+	// reset the buffer
+	w.buf = w.buf[:0]
+
+	return n0 + n1, nil
+
 }
 
 func (w *Writer) rotate() error {

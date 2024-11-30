@@ -111,3 +111,67 @@ func TestWriter_Rotates(t *testing.T) {
 	}
 
 }
+
+func TestWriterRotatesOnSeparator(t *testing.T) {
+	// tmp dir:
+	basePath, err := os.MkdirTemp("", "filerotate-test-*")
+	if err != nil {
+		t.Fatalf("failed to create a temp dir: %v", err)
+	}
+
+	w, err := NewWriter(Options{
+		FilePath:      basePath + "/test.log",
+		Rotate:        5,
+		Size:          1000,
+		Mode:          0644,
+		LineSeparator: LineSeparatorUnix,
+	})
+
+	testLine := "12345678901\n"
+
+	if err != nil {
+		t.Fatalf("failed to create a new writer: %v", err)
+	}
+
+	// write 2 * w.options.Size bytes
+	c := int64(2) * w.options.Size
+
+	for c > 0 {
+		n, err := w.Write([]byte(testLine))
+		if err != nil {
+			t.Fatalf("failed to write to the file: %v", err)
+		}
+		c -= int64(n)
+	}
+
+	err = w.Close()
+	if err != nil {
+		t.Fatalf("failed to close the writer: %v", err)
+	}
+
+	// check content of the test.log.1 file - it should end with a whole testLine
+
+	f, err := os.Open(basePath + "/test.log.1")
+	if err != nil {
+		t.Fatalf("failed to open the file: %v", err)
+	}
+
+	defer f.Close()
+
+	buf := make([]byte, len(testLine))
+
+	info, err := f.Stat()
+	if err != nil {
+		t.Fatalf("failed to get the file info: %v", err)
+	}
+
+	_, err = f.ReadAt(buf, info.Size()-int64(len(testLine)))
+	if err != nil {
+		t.Fatalf("failed to read the file: %v", err)
+	}
+
+	if string(buf) != testLine {
+		t.Fatalf("invalid content of the file: %s", buf)
+	}
+
+}

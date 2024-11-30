@@ -16,7 +16,20 @@ type Options struct {
   Size uint64
   // File mode, like 0600
   Mode os.FileMode
+  // LineSeparator is the separator for the rotated files content
+  // If specified, rotated files will be split only when the separator is found in the
+  // content of the file.
+  LineSeparator []byte
 }
+
+// there are predefined line separators, but you can use your own
+var (
+  LineSeparatorUnix    = []byte("\n")
+  LineSeparatorWindows = []byte("\r\n")
+  LineSeparatorMac     = []byte("\r")
+  LineSeparatorNothing = []byte{}
+)
+
 ```
 
 ## Usage
@@ -36,6 +49,7 @@ func main() {
         Rotate:   3,
         Size:     1024,
         Mode:     0600,
+        LineSeparator: filerotate.LineSeparatorUnix,
     })
     
     if err != nil {
