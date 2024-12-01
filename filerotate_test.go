@@ -3,6 +3,7 @@ package filerotate
 import (
 	"fmt"
 	"os"
+	"path"
 	"testing"
 )
 
@@ -14,7 +15,7 @@ func TestNewWriter(t *testing.T) {
 	}
 
 	w, err := NewWriter(Options{
-		FilePath: basePath + "/test.log",
+		FilePath: path.Join(basePath, "test.log"),
 		Rotate:   5,
 		Size:     1000,
 		Mode:     0644,
@@ -52,7 +53,7 @@ func TestWriterRotates(t *testing.T) {
 	}
 
 	w, err := NewWriter(Options{
-		FilePath: basePath + "/test.log",
+		FilePath: path.Join(basePath, "test.log"),
 		Rotate:   5,
 		Size:     1000,
 		Mode:     0644,
@@ -115,7 +116,7 @@ func TestWriterRotatesOnSeparator(t *testing.T) {
 	}
 
 	w, err := NewWriter(Options{
-		FilePath:      basePath + "/test.log",
+		FilePath:      path.Join(basePath, "test.log"),
 		Rotate:        5,
 		Size:          1000,
 		Mode:          0644,
@@ -146,7 +147,7 @@ func TestWriterRotatesOnSeparator(t *testing.T) {
 
 	// check content of the test.log.1 file - it should end with a whole testLine
 
-	f, err := os.Open(basePath + "/test.log.1")
+	f, err := os.Open(path.Join(basePath, "test.log.1"))
 	if err != nil {
 		t.Fatalf("failed to open the file: %v", err)
 	}

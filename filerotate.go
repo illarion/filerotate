@@ -198,9 +198,10 @@ func (w *Writer) rotate() error {
 	}
 
 	// rename the current file
-	err := os.Rename(w.options.FilePath, w.options.FilePath+".1")
+	toName := fmt.Sprintf("%s.1", w.options.FilePath)
+	err := os.Rename(w.options.FilePath, toName)
 	if err != nil {
-		return fmt.Errorf("failed to rename %s to %s: %v", w.options.FilePath, w.options.FilePath+".1", err)
+		return fmt.Errorf("failed to rename %s to %s: %v", w.options.FilePath, toName, err)
 	}
 
 	// create a new file
