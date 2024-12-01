@@ -44,7 +44,7 @@ func TestNewWriter(t *testing.T) {
 
 }
 
-func TestWriter_Rotates(t *testing.T) {
+func TestWriterRotates(t *testing.T) {
 	// tmp dir:
 	basePath, err := os.MkdirTemp("", "filerotate-test-*")
 	if err != nil {
@@ -92,11 +92,6 @@ func TestWriter_Rotates(t *testing.T) {
 	set := make(map[string]struct{})
 	for _, file := range files {
 		set[file.Name()] = struct{}{}
-	}
-
-	// output file names for debug purposes:
-	for k := range set {
-		fmt.Println(k)
 	}
 
 	if _, ok := set["test.log"]; !ok {
